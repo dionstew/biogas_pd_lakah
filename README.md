@@ -1,6 +1,6 @@
 # biogas_pd_lakah
 
-## Installation:
+## Installation
 
 1.  Install latest LTS of Node.js
     https://nodejs.org/en/
