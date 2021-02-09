@@ -20,7 +20,8 @@
        
     b. Run the downloaded installer (.exe)
     
-    c. Install and follow instructions.
+    c. Install and follow instructions. You can also follow the instructions written in this website below.
+       http://bytesofgigabytes.com/mqtt/installing-mqtt-broker-on-windows/
     
     d. Open command prompt as administrator (Right-click -> Run as Adminsitrator)
     
@@ -30,7 +31,8 @@
     f. Type commands below to start mosquitto server and press Enter
        > mosquitto install
        > net start mosquitto
-
+    g. Mosquitto service is installed and ready to use. If any of you encounter any problems, refer to the website written in the point c.
+    
 ## Run
 ### Run Node-red
 1.  Type below command in new command prompt
