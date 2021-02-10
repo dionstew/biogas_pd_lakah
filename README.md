@@ -1,5 +1,10 @@
 # biogas_pd_lakah
-
+## Info
+(ID)
+    Merupakan repository untuk sistem akuisisi data dari plant biogas rumahan. Lokasi plant berada di Perumahan Pondok Lakah Permai, Ciledug, Tangerang, Indonesia
+(EN)
+    This repository is intended for the acquisition data system from house biogas plant. The plant is located in Pondok Lakah Permai Housing Complex, Ciledug, Tangerang, Indonesia.
+ 
 ## Installation
 
 1.  Install latest LTS of Node.js
