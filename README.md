@@ -31,6 +31,7 @@
     f. Type commands below to start mosquitto server and press Enter
        > mosquitto install
        > net start mosquitto
+       
     g. Mosquitto service is installed and ready to use. If any of you encounter any problems, refer to the website written in the point c.
     
 ## Run
