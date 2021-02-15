@@ -65,8 +65,7 @@ void reconnect() {
 
 void tekanan_sen(){
   int nilai_adc = analogRead(0);
-  float tegangan_sensor = (nilai_adc*5.00/1024)-offset_tekanan_ruang;
-  tekanan_ruang = (400*tegangan_sensor)-200;
+  float tekanan = (0.0783 * nilai_adc) - 96398
 }
 
 void setup() {
