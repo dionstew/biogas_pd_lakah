@@ -140,24 +140,34 @@ void loop() {
     // Menghitung nilai temperatur dalam satuan Celcius
     float hic = dht.computeHeatIndex(t, h, false);
     
-//--------> Mendeteksi & Menghitung volume biomass
+//--------> Mendeteksi & Menghitung ketebalan biomass
     ultrasonic_sen();
-    Vb = PI * ((D_tb-distance)/2) * t_tb; 
+    Vb = (PI * pow((D_tb-distance),2))/4) * t_tb; 
 
 //--------> Mendeteksi & menghitung kadar metana didalam ruangan
     int ppm = X * analogRead(0);
+    float Rs_RoMet = (-0.00044 * ppm) + 3.0875;
+    float kmet = (-10*Rs_RoMet) + 100;
+    
+//--------> Mendeteksi & menghitung kadar CO didalam ruangan
+    float Rs_RoCO = (-0.0003 * ppm) + 3.7696;
+    float kco = (-10*Rs_RoCO) + 100;
    
     // Variable yang dikonversi ke string: nilai tekanan, suhu, kelembaban, volume.
     tempStr = String(hic);   
     humStr  = String(h);
     volStr  = String(Vb);
     kmetStr = String(kmet);
-    
-    // Publishes Temperature and Humidity values
+    kcoStr  = String(kco);
+      
+    // Publish variabel ke MQTT Node-Red
     client.publish("room/Temperature", tempStr.c_str());
     client.publish("room/Humidity", humStr.c_str());
     client.publish("room/Volume", volStr.c_str());
-    client.publish("room/GasCons", presStr.c_str());
+    client.publish("room/MetCons", kmetStr.c_str());
+    client.publish("room/COCons", kcoStr.c_str());
+    
+    // Print ke Serial Monitor
     Serial.print("Temperature (C): ");
     Serial.print(hic);
     Serial.print(" \t Kelembaban: ");
@@ -165,6 +175,8 @@ void loop() {
     Serial.print("\t Volume biomass: ");
     Serial.print(Vb);
     Serial.print("\t Kadar Gas Metana: ");
-    Serial.println(kmet);
+    Serial.print(kmet);
+    Serial.print("\t Kadar Gas Metana: ");
+    Serial.println(kco);
   }
 }
