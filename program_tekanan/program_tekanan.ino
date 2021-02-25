@@ -6,19 +6,17 @@
 // Parameter Server
 #define IP_address 192.168.43.254
 
-// Change the credentials below, so your ESP8266 connects to your router
+// Inisialisasi server dan client
 const char* ssid = "OPPOAAAA";
 const char* password = "qwertyuiop";
-
-// Change the variable to your Raspberry Pi IP address, so it connects to your MQTT broker
-const char* mqtt_server = "IP_address";
-
-// Initializes the espClient. You should change the espClient name if you have multiple ESPs running in your home automation system
-WiFiClient espClient;
-PubSubClient client(espClient);
+const char* mqtt_server = "test.mosquitto.org";
+WiFiClient espclient;
+PubSubClient client(espclient);
 
 // Variabel untuk diupload ke MQTT broker
-String presStr;
+#define MSG_BUFFER_SIZE  (50)
+char pressStr[MSG_BUFFER_SIZE];
+int nilai_adc;
 
 // Variable untuk sensor tekanan
 float tekanan_ruang;
@@ -40,8 +38,12 @@ void setup_wifi() {
     delay(500);
     Serial.print(".");
   }
+
+  randomSeed(micros());
+
   Serial.println("");
-  Serial.print("WiFi connected - ESP IP address: ");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 }
 
@@ -49,11 +51,15 @@ void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
+    // Create a random client ID
+    String clientId = "ESP8266Client-";
+    clientId += String(random(0xffff), HEX);
     // Attempt to connect
-    if (client.connect("ESP8266Client")) {
-      Serial.println("connected");  
-    } 
-    else {
+    if (client.connect(clientId.c_str())) {
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      client.publish("status", "Hello! Connected");
+    } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
@@ -64,8 +70,10 @@ void reconnect() {
 }
 
 void tekanan_sen(){
-  int nilai_adc = analogRead(0);
-  float tekanan = (0.0783 * nilai_adc) - 96398
+  nilai_adc = analogRead(0);
+  //float tegangan_sensor = (nilai_adc*5.00/1024)-offset_tekanan_ruang;
+  //tekanan_ruang = (400*tegangan_sensor)-200;
+  tekanan_ruang = (0.5386*nilai_adc) - 66.117;
 }
 
 void setup() {
@@ -90,15 +98,19 @@ void loop() {
     
 //---------> Mendeteksi & Menghitung Tekanan
     tekanan_sen(); // Didalam fungsinya juga terdapat hitungan untuk mencari tekanan
+    if (tekanan_ruang<0){ tekanan_ruang = 0;}
+//    tekanan_ruang++;
     
 //---------> Variable yang dikonversi ke string: nilai tekanan, suhu, kelembaban, volume.
-    presStr = String(tekanan_ruang);
+    snprintf (pressStr, MSG_BUFFER_SIZE, "%f", tekanan_ruang);
 
-//---------> Publishes Temperature and Humidity values
-    client.publish("room/Pressure", presStr.c_str());
+//---------> Nilai variabel tekanan yang sudah dikonversi diupload
+    client.publish("room/Pressure", pressStr);
     
 //---------> Print serial nilai tekanan
     Serial.print("Tekanan Ruang: ");
-    Serial.print(tekanan_ruang);
+    Serial.print(nilai_adc);
+    Serial.print("\tTekanan Ruang: ");
+    Serial.println(tekanan_ruang);
     }
 }
