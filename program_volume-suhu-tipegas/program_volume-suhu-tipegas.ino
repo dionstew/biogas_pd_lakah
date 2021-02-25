@@ -8,7 +8,7 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
-#include "DHT.h"
+#include <DHT.h>
 #include <MQUnifiedsensor.h>
 
 #define DHTTYPE DHT11   // DHT 11
@@ -21,31 +21,34 @@
 #define t_tb 113   // masukkan angka disini!
 #define PI 3.14
 
-// Parameter Server
-#define IP_address 192.168.43.254 // set IP from your PC
-const char* ssid = "OPPOAAAA";  // set Router for your router
-const char* password = "qwertyuiop";  // set your Router password
-
-// Atur IP server
-const char* mqtt_server = "IP_address";
-
-// Inisialisasi client wifi
-WiFiClient espClient;
-PubSubClient client(espClient);
+// Inisialisasi server dan client
+const char* ssid = "OPPOAAAA";
+const char* password = "qwertyuiop";
+const char* mqtt_server = "test.mosquitto.org";
+WiFiClient espclient;
+PubSubClient client(espclient);
 
 // DHT Sensor - GPIO 6 on ESP-12E NodeMCU board
-const int DHTPin = 6;
+#define DHTPin D6
 DHT dht(DHTPin, DHTTYPE);
 
 // Variable for ultrasonic_sen
-float distance, offset = 0.9, Vb = 0.0;
+float distance, offset = 0.9;
 long duration = 0;
 
-// Variabel untuk menyimpan kadar gas metana
-int kmet;
+// Variabel penyimpanan nilai akhir sebelum dikonversi
+float hic = 0;
+float h = 0, t = 0;
+float Vb = 0;
+float kmet_percent = 0;
 
 // Variabel untuk diupload ke MQTT broker
-String kmetStr, volStr, tempStr, humStr;
+#define MSG_BUFFER_SIZE  (50)
+char tempStr[MSG_BUFFER_SIZE];
+char humStr[MSG_BUFFER_SIZE];
+char volStr[MSG_BUFFER_SIZE];
+char kmetStr_percent[MSG_BUFFER_SIZE];
+
 
 // Timers auxiliar variables
 long now = millis();
@@ -59,12 +62,17 @@ void setup_wifi() {
   Serial.print("Connecting to ");
   Serial.println(ssid);
   WiFi.begin(ssid, password);
+  
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
+
+  randomSeed(micros());
+
   Serial.println("");
-  Serial.print("WiFi connected - ESP IP address: ");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 }
 
@@ -72,11 +80,15 @@ void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
+    // Create a random client ID
+    String clientId = "ESP8266Client-";
+    clientId += String(random(0xffff), HEX);
     // Attempt to connect
-    if (client.connect("ESP8266Client")) {
-      Serial.println("connected");      
-    } 
-    else {
+    if (client.connect(clientId.c_str())) {
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      client.publish("statusTopic", "Hello, Connected !!");
+    } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
@@ -104,7 +116,7 @@ void ultrasonic_sen() {
 
 
 void setup() {
-  pinMode(DHTPin, INPUT);
+  //pinMode(DHTPin, INPUT);
   pinMode(trig_pin, OUTPUT);
   pinMode(echo_pin, INPUT);
   dht.begin();
@@ -126,7 +138,7 @@ void loop() {
 
   // Jika menambahkan interface input, tambahkan dibawah ini!
   // Publishes new temperature and humidity every 30 seconds
-  if (now - lastMeasure > 30000) {
+  if (now - lastMeasure > 2000) {
     lastMeasure = now;
     
 //--------> Pembacaan Sensor DHT11
@@ -140,34 +152,39 @@ void loop() {
     // Menghitung nilai temperatur dalam satuan Celcius
     float hic = dht.computeHeatIndex(t, h, false);
     
-//--------> Mendeteksi & Menghitung ketebalan biomass
+    //--------> Mendeteksi & Menghitung volume biomass
     ultrasonic_sen();
-    Vb = (PI * pow((D_tb-distance),2))/4) * t_tb; 
-
-//--------> Mendeteksi & menghitung kadar metana didalam ruangan
-    int ppm = X * analogRead(0);
-    float Rs_RoMet = (-0.00044 * ppm) + 3.0875;
-    float kmet = (-10*Rs_RoMet) + 100;
+    //Vb = PI * ((D_tb - distance) / 2) * t_tb; // volume tabung.
+    Vb = 19 * 30 * (20.50- distance); // volume kotak. NB: khusus untuk demo
+    if (Vb<0){Vb = 0;}
     
-//--------> Mendeteksi & menghitung kadar CO didalam ruangan
-    float Rs_RoCO = (-0.0003 * ppm) + 3.7696;
-    float kco = (-10*Rs_RoCO) + 100;
-   
-    // Variable yang dikonversi ke string: nilai tekanan, suhu, kelembaban, volume.
-    tempStr = String(hic);   
-    humStr  = String(h);
-    volStr  = String(Vb);
-    kmetStr = String(kmet);
-    kcoStr  = String(kco);
+    //--------> Mendeteksi & menghitung kadar metana didalam ruangan
+    ppm = X * analogRead(mq_in);
+    //float RsRo_LPG = (-0.0001 * ppm) + 1.0449;
+    //float RsRo_CH4 = (-0.00044 * ppm) + 3.0875;
+    float RsRo_CO = (-0.0003 * ppm) + 3.7696;
+    //kmet_percent = (-10 * RsRo_LPG) + 100;
+    //kmet_percent = (-10 * RsRo_CH4) + 100;
+    kmet_percent = (-10 * RsRo_CO) + 100;
+    
+    /*
+    hic++;
+    h++;
+    Vb++;
+    kmet_percent++;
+    */
+    // Variable yang dikonversi ke string: nilai tekanan, suhu, kelembaban, volume
+    snprintf (tempStr, MSG_BUFFER_SIZE, "%f", hic);
+    snprintf (humStr, MSG_BUFFER_SIZE, "%f", h);
+    snprintf (volStr, MSG_BUFFER_SIZE, "%f", Vb);
+    snprintf (kmetStr_percent, MSG_BUFFER_SIZE, "%f", kmet_percent);
       
-    // Publish variabel ke MQTT Node-Red
-    client.publish("room/Temperature", tempStr.c_str());
-    client.publish("room/Humidity", humStr.c_str());
-    client.publish("room/Volume", volStr.c_str());
-    client.publish("room/MetCons", kmetStr.c_str());
-    client.publish("room/COCons", kcoStr.c_str());
+    // Publishes Temperature and Humidity values
+    client.publish("room/Temperature", tempStr);
+    client.publish("room/Humidity", humStr);
+    client.publish("room/Volume", volStr);
+    client.publish("room/GasCons", kmetStr_percent);
     
-    // Print ke Serial Monitor
     Serial.print("Temperature (C): ");
     Serial.print(hic);
     Serial.print(" \t Kelembaban: ");
@@ -175,8 +192,8 @@ void loop() {
     Serial.print("\t Volume biomass: ");
     Serial.print(Vb);
     Serial.print("\t Kadar Gas Metana: ");
-    Serial.print(kmet);
-    Serial.print("\t Kadar Gas Metana: ");
-    Serial.println(kco);
+    Serial.println(kmetStr_percent);
+    Serial.print("\t Bonus: ");
+    Serial.println(distance);
   }
 }
